@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <title>Dashboard Susu Kia</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      font-family: -apple-system, sans-serif;
+      color: #4a4a4a;
+      background: #fdf6f0;
+    }
+    .wrap {
+      max-width: 420px;
+      margin: 0 auto;
+      padding: 24px 16px;
+      text-align: center;
+    }
+    h2 { color: #5b7c8a; margin-bottom: 4px; }
+    .sub { color: #a89b93; font-size: 14px; margin-bottom: 20px; }
+    .total {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .total .angka { font-size: 40px; font-weight: 700; color: #5b7c8a; }
+    .total .label { font-size: 13px; color: #a89b93; }
+    .item {
+      background: white;
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      text-align: left;
+    }
+    .grafik {
+      background: white;
+      border-radius: 16px;
+      padding: 16px;
+      margin-top: 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .grafik h3 { margin: 0 0 16px; font-size: 14px; color: #7a7268; text-align: left; }
+    .bar-chart {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      height: 120px;
+      gap: 4px;
+      width: 100%;
+    }
+    .bar-col {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      height: 100%;
+    }
+    .bar {
+      width: 100%;
+      background: #a8cdd7;
+      border-radius: 6px 6px 0 0;
+      min-height: 4px;
+      transition: height 0.3s;
+    }
+    .bar.hari-ini { background: #f4b8ab; }
+    .bar-angka { font-size: 11px; font-weight: 700; color: #7a7268; margin-bottom: 4px; }
+    .bar-label { font-size: 9px; color: #a89b93; margin-top: 6px; white-space: nowrap; }
+    #loading { color: #a89b93; padding: 40px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2>🍼 Susu Kia</h2>
+    <div class="sub">Riwayat hari ini</div>
+    <div id="loading">Memuat...</div>
+    <div id="konten" style="display:none;">
+      <div class="total">
+        <div class="angka" id="totalAngka">0</div>
+        <div class="label">kali hari ini</div>
+      </div>
+      <div id="list"></div>
+
+      <div class="grafik">
+        <h3>7 hari terakhir</h3>
+        <div class="bar-chart" id="barChart"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // GANTI dengan URL Web App Apps Script kamu (yang sama dipakai buat NFC tag)
+    var API_URL = 'https://script.google.com/macros/s/AKfycbz2fNoY5c2wW1BhZtxJZcnKEAtFGDWbvCiZQCot-GjrS-GIf8oS_TqN74gErDNMWcwGww/exec?mode=data';
+
+    fetch(API_URL)
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('konten').style.display = 'block';
+        document.getElementById('totalAngka').textContent = data.hariIni.totalHariIni;
+
+        var listEl = document.getElementById('list');
+        if (data.hariIni.list.length === 0) {
+          listEl.innerHTML = '<div style="color:#a89b93;padding:12px 0;">Belum ada catatan hari ini</div>';
+        } else {
+          data.hariIni.list.forEach(function(jam) {
+            listEl.innerHTML += '<div class="item">' + jam + '</div>';
+          });
+        }
+
+        var riwayat = data.mingguan;
+        var max = Math.max.apply(null, riwayat.map(function(r) { return r.total; }).concat([1]));
+        var chartEl = document.getElementById('barChart');
+        riwayat.forEach(function(r, idx) {
+          var tinggiPersen = (r.total / max) * 100;
+          var isHariIni = idx === riwayat.length - 1;
+          chartEl.innerHTML +=
+            '<div class="bar-col">' +
+              '<div class="bar-angka">' + r.total + '</div>' +
+              '<div class="bar' + (isHariIni ? ' hari-ini' : '') + '" style="height:' + Math.max(tinggiPersen, 4) + '%;"></div>' +
+              '<div class="bar-label">' + r.label + '</div>' +
+            '</div>';
+        });
+      })
+      .catch(function(err) {
+        document.getElementById('loading').textContent = 'Gagal memuat: ' + err.message;
+      });
+  </script>
+</body>
+</html>
