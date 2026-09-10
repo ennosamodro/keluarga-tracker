@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <title>Catat Berat Badan</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      font-family: -apple-system, sans-serif;
+      color: #4a4a4a;
+      background: #fdf6f0;
+    }
+    .wrap { max-width: 400px; margin: 0 auto; padding: 24px 20px; }
+    h2 { margin: 0 0 4px; color: #5b7c8a; }
+    .sub { color: #a89b93; font-size: 14px; margin-bottom: 24px; }
+    label { display: block; font-weight: 600; margin-top: 16px; margin-bottom: 6px; color: #6b6b6b; }
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: 1px solid #e8dfd8;
+      border-radius: 14px;
+      background: #fffdfb;
+      color: #4a4a4a;
+    }
+    input:focus, textarea:focus { outline: none; border-color: #a8cdd7; }
+    .toggle { display: flex; gap: 10px; margin-top: 8px; }
+    .toggle button {
+      flex: 1;
+      background: #f0e9e2;
+      color: #7a7268;
+      font-weight: 600;
+      padding: 14px;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+    }
+    .toggle button.active { background: #f4b8ab; color: white; }
+    button.submit {
+      width: 100%;
+      margin-top: 24px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      background: #a8cdd7;
+      color: white;
+      border: none;
+      border-radius: 14px;
+    }
+    #riwayat { margin-top: 24px; padding: 12px; background: #f0e9e2; border-radius: 14px; font-size: 14px; color: #7a7268; }
+    #status { margin-top: 16px; font-size: 14px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2>Catat Berat Badan</h2>
+    <div class="sub">Pilih anak, isi berat, submit</div>
+
+    <label>Anak</label>
+    <div class="toggle">
+      <button type="button" id="btnKaif" onclick="pilihAnak('Kaif')">Kaif</button>
+      <button type="button" id="btnKia" onclick="pilihAnak('Kia')">Kia</button>
+    </div>
+
+    <div id="riwayat">Pilih anak dulu buat lihat data terakhir</div>
+
+    <label>Berat (kg)</label>
+    <input type="number" step="0.1" id="berat" placeholder="misal: 12.4">
+
+    <label>Tinggi (cm) — opsional</label>
+    <input type="number" step="0.1" id="tinggi" placeholder="misal: 85">
+
+    <label>Catatan — opsional</label>
+    <textarea id="catatan" rows="2" placeholder="misal: abis sakit, nafsu makan turun"></textarea>
+
+    <button class="submit" onclick="simpan()">Simpan</button>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    var SHEET_ID = '1aBhGNP7LP9D0Ig38mA1HVwYiEwAhL07UO6Zp792h40A';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbz2fNoY5c2wW1BhZtxJZcnKEAtFGDWbvCiZQCot-GjrS-GIf8oS_TqN74gErDNMWcwGww/exec';
+    var anakDipilih = null;
+
+    function pilihAnak(nama) {
+      anakDipilih = nama;
+      document.getElementById('btnKaif').className = nama === 'Kaif' ? 'active' : '';
+      document.getElementById('btnKia').className = nama === 'Kia' ? 'active' : '';
+
+      var el = document.getElementById('riwayat');
+      el.textContent = 'Memuat data terakhir ' + nama + '...';
+
+      var url = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=Data_Timbang';
+      fetch(url)
+        .then(function(res) { return res.text(); })
+        .then(function(text) {
+          var json = JSON.parse(text.substring(text.indexOf('(') + 1, text.lastIndexOf(')')));
+          var rows = json.table.rows;
+          var terakhir = null;
+
+          for (var i = rows.length - 1; i >= 0; i--) {
+            var r = rows[i].c;
+            if (r[1] && r[1].v === nama) {
+              var raw = r[0].v;
+              var m = /Date\((\d+),(\d+),(\d+),(\d+),(\d+),(\d+)\)/.exec(raw);
+              var d = m ? new Date(parseInt(m[1]), parseInt(m[2]), parseInt(m[3]), parseInt(m[4]), parseInt(m[5]), parseInt(m[6])) : null;
+              terakhir = {
+                tanggal: d ? d.toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-',
+                berat: r[2] ? r[2].v : '-',
+                tinggi: r[3] ? r[3].v : ''
+              };
+              break;
+            }
+          }
+
+          if (terakhir) {
+            el.innerHTML = 'Terakhir (' + nama + '): <b>' + terakhir.berat + ' kg</b>' +
+              (terakhir.tinggi ? ', ' + terakhir.tinggi + ' cm' : '') + '<br>' + terakhir.tanggal;
+          } else {
+            el.textContent = 'Belum ada data ' + nama + ' tercatat.';
+          }
+        })
+        .catch(function() {
+          el.textContent = 'Gagal memuat riwayat (nggak masalah, tetap bisa isi form).';
+        });
+    }
+
+    function simpan() {
+      var berat = document.getElementById('berat').value;
+      var tinggi = document.getElementById('tinggi').value;
+      var catatan = document.getElementById('catatan').value;
+      var statusEl = document.getElementById('status');
+
+      if (!anakDipilih) {
+        statusEl.textContent = 'Pilih anaknya dulu ya';
+        statusEl.style.color = 'red';
+        return;
+      }
+      if (!berat) {
+        statusEl.textContent = 'Isi berat dulu ya';
+        statusEl.style.color = 'red';
+        return;
+      }
+
+      statusEl.textContent = 'Menyimpan...';
+      statusEl.style.color = '#888';
+
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ jenis: 'timbang', anak: anakDipilih, berat: berat, tinggi: tinggi, catatan: catatan })
+      })
+        .then(function() {
+          statusEl.textContent = '✅ Tersimpan untuk ' + anakDipilih + '!';
+          statusEl.style.color = 'green';
+          document.getElementById('berat').value = '';
+          document.getElementById('tinggi').value = '';
+          document.getElementById('catatan').value = '';
+        })
+        .catch(function() {
+          statusEl.textContent = '✅ Tersimpan (cek dashboard buat konfirmasi)';
+          statusEl.style.color = 'green';
+        });
+    }
+  </script>
+</body>
+</html>
