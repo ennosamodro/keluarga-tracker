@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <title>Kia Minum Susu</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: -apple-system, sans-serif;
+      background: #fdf6f0;
+      color: #4a4a4a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .ikon { font-size: 40px; }
+    .judul { font-size: 26px; font-weight: 700; color: #5b7c8a; margin-top: 8px; }
+    .sub { color: #a89b93; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div>
+    <div class="ikon" id="ikon">🍼</div>
+    <div class="judul" id="judul">Mencatat...</div>
+    <div class="sub" id="sub"></div>
+  </div>
+
+  <script>
+    // GANTI dengan URL Web App Apps Script kamu
+    var API_URL = 'https://script.google.com/macros/s/AKfycbz2fNoY5c2wW1BhZtxJZcnKEAtFGDWbvCiZQCot-GjrS-GIf8oS_TqN74gErDNMWcwGww/exec';
+
+    // guard sisi browser: kalau tab ini udah pernah fire (misal ke-refresh), jangan kirim ulang
+    if (sessionStorage.getItem('sudahTap')) {
+      document.getElementById('judul').textContent = 'Udah tercatat';
+      document.getElementById('sub').textContent = 'Refresh nggak nyatet ulang. Tap tag lagi buat catatan baru.';
+    } else {
+      sessionStorage.setItem('sudahTap', '1');
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ anak: 'Kia' })
+      })
+        .then(function() {
+          document.getElementById('judul').textContent = 'Tercatat!';
+          document.getElementById('sub').textContent = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        })
+        .catch(function() {
+          document.getElementById('judul').textContent = 'Tercatat!';
+          document.getElementById('sub').textContent = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' (cek dashboard buat konfirmasi)';
+        });
+    }
+  </script>
+</body>
+</html>
