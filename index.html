@@ -98,26 +98,60 @@
   </div>
 
   <script>
-    // GANTI dengan URL Web App Apps Script kamu (yang sama dipakai buat NFC tag)
-    var API_URL = 'https://script.google.com/macros/s/AKfycbz2fNoY5c2wW1BhZtxJZcnKEAtFGDWbvCiZQCot-GjrS-GIf8oS_TqN74gErDNMWcwGww/exec?mode=data';
+    // GANTI dua ini sesuai Sheet kamu:
+    var SHEET_ID = '1aBhGNP7LP9D0Ig38mA1HVwYiEwAhL07UO6Zp792h40A';
+    var GID = '0'; // gid tab "Log_Susu_Kia" — cek di URL pas tab itu lagi kebuka, setelah #gid=
 
-    fetch(API_URL)
-      .then(function(res) { return res.json(); })
-      .then(function(data) {
+    var url = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=Log_Susu_Kia';
+
+    fetch(url)
+      .then(function(res) { return res.text(); })
+      .then(function(text) {
+        var json = JSON.parse(text.substring(text.indexOf('(') + 1, text.lastIndexOf(')')));
+        var rows = json.table.rows;
+
+        var tz_offset_hours = 7; // WIB
+        var now = new Date();
+        var hariIniStr = now.toISOString().split('T')[0];
+
+        var listHariIni = [];
+        var perTanggal = {};
+
+        rows.forEach(function(r) {
+          if (!r.c[0] || !r.c[0].v) return;
+          var raw = r.c[0].v; // format gviz: "Date(2026,8,10,14,20,0)"
+          var m = /Date\((\d+),(\d+),(\d+),(\d+),(\d+),(\d+)\)/.exec(raw);
+          if (!m) return;
+          var d = new Date(parseInt(m[1]), parseInt(m[2]), parseInt(m[3]), parseInt(m[4]), parseInt(m[5]), parseInt(m[6]));
+          var tglStr = d.toISOString().split('T')[0];
+          var jamStr = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+
+          perTanggal[tglStr] = (perTanggal[tglStr] || 0) + 1;
+          if (tglStr === hariIniStr) listHariIni.unshift(jamStr);
+        });
+
         document.getElementById('loading').style.display = 'none';
         document.getElementById('konten').style.display = 'block';
-        document.getElementById('totalAngka').textContent = data.hariIni.totalHariIni;
+        document.getElementById('totalAngka').textContent = listHariIni.length;
 
         var listEl = document.getElementById('list');
-        if (data.hariIni.list.length === 0) {
+        if (listHariIni.length === 0) {
           listEl.innerHTML = '<div style="color:#a89b93;padding:12px 0;">Belum ada catatan hari ini</div>';
         } else {
-          data.hariIni.list.forEach(function(jam) {
+          listHariIni.forEach(function(jam) {
             listEl.innerHTML += '<div class="item">' + jam + '</div>';
           });
         }
 
-        var riwayat = data.mingguan;
+        var riwayat = [];
+        for (var d2 = 6; d2 >= 0; d2--) {
+          var tgl = new Date();
+          tgl.setDate(tgl.getDate() - d2);
+          var tglStr2 = tgl.toISOString().split('T')[0];
+          var label = tgl.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit' });
+          riwayat.push({ label: label, total: perTanggal[tglStr2] || 0 });
+        }
+
         var max = Math.max.apply(null, riwayat.map(function(r) { return r.total; }).concat([1]));
         var chartEl = document.getElementById('barChart');
         riwayat.forEach(function(r, idx) {
