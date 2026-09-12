@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <title>Kurva Pertumbuhan</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; width: 100%;
+      font-family: -apple-system, sans-serif;
+      color: #4a4a4a; background: #fdf6f0;
+    }
+    .wrap { max-width: 460px; margin: 0 auto; padding: 24px 16px 40px; }
+    h2 { color: #5b7c8a; margin-bottom: 4px; text-align: center; }
+    .sub { color: #a89b93; font-size: 13px; text-align: center; margin-bottom: 4px; }
+    .disclaimer { color: #c9a688; font-size: 11px; text-align: center; margin-bottom: 20px; padding: 0 10px; }
+    .toggle { display: flex; gap: 10px; margin-bottom: 20px; }
+    .toggle button {
+      flex: 1; background: #f5f0ea; color: #9a8f83; font-weight: 700;
+      padding: 14px; border: none; border-radius: 14px; font-size: 16px;
+    }
+    .toggle button.active { background: #f4b8ab; color: white; }
+    .card { background: white; border-radius: 18px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .legend { display: flex; justify-content: center; gap: 16px; margin-top: 12px; font-size: 12px; color: #7a7268; flex-wrap: wrap; }
+    .legend span { display: flex; align-items: center; gap: 4px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    #status { text-align: center; color: #a89b93; padding: 30px 0; }
+    .info { margin-top: 16px; text-align: center; font-size: 13px; color: #7a7268; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2>📈 Kurva Pertumbuhan</h2>
+    <div class="sub">Berat badan vs standar WHO (per usia bulan)</div>
+    <div class="disclaimer">Kurva referensi disederhanakan dari nilai umum WHO — bukan untuk diagnosis, cek dokter anak untuk penilaian resmi.</div>
+
+    <div class="toggle">
+      <button type="button" id="btnKaif" onclick="pilih('Kaif')">Kaif</button>
+      <button type="button" id="btnKia" onclick="pilih('Kia')">Kia</button>
+    </div>
+
+    <div class="card">
+      <div id="status">Pilih anak dulu</div>
+      <canvas id="chart" style="display:none;"></canvas>
+      <div class="legend" id="legend" style="display:none;">
+        <span><i class="dot" style="background:#e0a898;"></i> P3 (bawah)</span>
+        <span><i class="dot" style="background:#a8cdd7;"></i> P50 (median)</span>
+        <span><i class="dot" style="background:#e0a898;"></i> P97 (atas)</span>
+        <span><i class="dot" style="background:#5b7c8a;"></i> Berat Kaif/Kia</span>
+      </div>
+    </div>
+    <div class="info" id="infoTerakhir"></div>
+  </div>
+
+  <script>
+    var SHEET_ID = '1aBhGNP7LP9D0Ig38mA1HVwYiEwAhL07UO6Zp792h40A';
+
+    // Tanggal lahir
+    var LAHIR = {
+      Kaif: new Date(2023, 6, 11),  // 11 Juli 2023
+      Kia: new Date(2026, 1, 15)    // 15 Feb 2026
+    };
+
+    // Referensi WHO disederhanakan (kg) per bulan usia — P3, P50, P97
+    // Sumber: nilai umum dipublikasikan WHO Child Growth Standards (weight-for-age), disederhanakan per titik & diinterpolasi linear di antaranya
+    var WHO = {
+      Kaif: [ // laki-laki
+        {b:0, p3:2.5, p50:3.3, p97:4.4},
+        {b:3, p3:5.0, p50:6.4, p97:8.0},
+        {b:6, p3:6.4, p50:7.9, p97:9.8},
+        {b:9, p3:7.1, p50:8.9, p97:11.0},
+        {b:12, p3:7.7, p50:9.6, p97:12.0},
+        {b:18, p3:8.8, p50:10.9, p97:13.7},
+        {b:24, p3:9.7, p50:12.2, p97:15.3},
+        {b:36, p3:11.3, p50:14.3, p97:18.3},
+        {b:48, p3:12.7, p50:16.3, p97:21.2},
+        {b:60, p3:14.1, p50:18.3, p97:24.2}
+      ],
+      Kia: [ // perempuan
+        {b:0, p3:2.4, p50:3.2, p97:4.2},
+        {b:3, p3:4.5, p50:5.8, p97:7.5},
+        {b:6, p3:5.7, p50:7.3, p97:9.3},
+        {b:9, p3:6.5, p50:8.2, p97:10.5},
+        {b:12, p3:7.0, p50:8.9, p97:11.5},
+        {b:18, p3:8.1, p50:10.2, p97:13.2},
+        {b:24, p3:9.0, p50:11.5, p97:14.8},
+        {b:36, p3:10.8, p50:13.9, p97:18.1},
+        {b:48, p3:12.3, p50:16.1, p97:21.5},
+        {b:60, p3:13.7, p50:18.2, p97:24.9}
+      ]
+    };
+
+    var chartInstance = null;
+
+    function interpolasi(ref, bulanTarget) {
+      for (var i = 0; i < ref.length - 1; i++) {
+        if (bulanTarget >= ref[i].b && bulanTarget <= ref[i+1].b) {
+          var t = (bulanTarget - ref[i].b) / (ref[i+1].b - ref[i].b);
+          return {
+            p3: ref[i].p3 + t * (ref[i+1].p3 - ref[i].p3),
+            p50: ref[i].p50 + t * (ref[i+1].p50 - ref[i].p50),
+            p97: ref[i].p97 + t * (ref[i+1].p97 - ref[i].p97)
+          };
+        }
+      }
+      var last = ref[ref.length - 1];
+      return { p3: last.p3, p50: last.p50, p97: last.p97 };
+    }
+
+    function pilih(nama) {
+      document.getElementById('btnKaif').className = nama === 'Kaif' ? 'active' : '';
+      document.getElementById('btnKia').className = nama === 'Kia' ? 'active' : '';
+      document.getElementById('status').style.display = 'block';
+      document.getElementById('status').textContent = 'Memuat data ' + nama + '...';
+      document.getElementById('chart').style.display = 'none';
+      document.getElementById('legend').style.display = 'none';
+
+      var url = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=Data_Timbang';
+      fetch(url)
+        .then(function(res) { return res.text(); })
+        .then(function(text) {
+          var json = JSON.parse(text.substring(text.indexOf('(') + 1, text.lastIndexOf(')')));
+          var rows = json.table.rows;
+          var lahir = LAHIR[nama];
+          var titikData = [];
+
+          rows.forEach(function(r) {
+            var c = r.c;
+            if (!c[0] || !c[1] || c[1].v !== nama || !c[2]) return;
+            var raw = c[0].v;
+            var m = /Date\((\d+),(\d+),(\d+),(\d+),(\d+),(\d+)\)/.exec(raw);
+            if (!m) return;
+            var d = new Date(parseInt(m[1]), parseInt(m[2]), parseInt(m[3]));
+            var bulanUsia = (d - lahir) / (1000 * 60 * 60 * 24 * 30.4375);
+            titikData.push({ x: Math.round(bulanUsia * 10) / 10, y: parseFloat(c[2].v) });
+          });
+
+          titikData.sort(function(a, b) { return a.x - b.x; });
+
+          if (titikData.length === 0) {
+            document.getElementById('status').textContent = 'Belum ada data ' + nama + ' buat digambar kurvanya.';
+            return;
+          }
+
+          // bikin garis referensi dari usia 0 sampai usia terakhir tercatat (dibulatkan ke atas)
+          var maxBulan = Math.max(60, Math.ceil(titikData[titikData.length - 1].x / 6) * 6);
+          var ref = WHO[nama];
+          var labelBulan = [];
+          var dataP3 = [], dataP50 = [], dataP97 = [];
+          for (var b = 0; b <= maxBulan; b += 1) {
+            var v = interpolasi(ref, b);
+            labelBulan.push(b);
+            dataP3.push(v.p3);
+            dataP50.push(v.p50);
+            dataP97.push(v.p97);
+          }
+
+          document.getElementById('status').style.display = 'none';
+          document.getElementById('chart').style.display = 'block';
+          document.getElementById('legend').style.display = 'flex';
+
+          var ctx = document.getElementById('chart').getContext('2d');
+          if (chartInstance) chartInstance.destroy();
+
+          chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: labelBulan,
+              datasets: [
+                { label: 'P97', data: dataP97, borderColor: '#e0a898', borderWidth: 1, pointRadius: 0, borderDash: [4,4] },
+                { label: 'P50', data: dataP50, borderColor: '#a8cdd7', borderWidth: 1.5, pointRadius: 0 },
+                { label: 'P3', data: dataP3, borderColor: '#e0a898', borderWidth: 1, pointRadius: 0, borderDash: [4,4] },
+                {
+                  label: nama, data: titikData, borderColor: '#5b7c8a', backgroundColor: '#5b7c8a',
+                  pointRadius: 4, borderWidth: 2, showLine: true, parsing: false
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { type: 'linear', title: { display: true, text: 'Usia (bulan)' }, min: 0, max: maxBulan },
+                y: { title: { display: true, text: 'Berat (kg)' } }
+              }
+            }
+          });
+
+          var terakhir = titikData[titikData.length - 1];
+          var posisi = interpolasi(ref, terakhir.x);
+          var ket = terakhir.y < posisi.p3 ? 'di bawah P3' : terakhir.y > posisi.p97 ? 'di atas P97' : 'dalam rentang normal (P3–P97)';
+          document.getElementById('infoTerakhir').textContent =
+            'Data terakhir: ' + terakhir.y + ' kg pada usia ' + terakhir.x + ' bulan — ' + ket;
+        })
+        .catch(function(err) {
+          document.getElementById('status').textContent = 'Gagal memuat: ' + err.message;
+        });
+    }
+  </script>
+</body>
+</html>
