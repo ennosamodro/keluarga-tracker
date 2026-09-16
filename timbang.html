@@ -112,7 +112,7 @@
 
       <div class="riwayat-card" id="riwayat">Pilih anak dulu buat lihat data terakhir</div>
 
-      <label>Berat (kg)</label>
+      <label>Berat (kg) — opsional</label>
       <input type="number" step="0.1" id="berat" placeholder="misal: 12.4">
 
       <label>Tinggi (cm) — opsional</label>
@@ -195,8 +195,8 @@
         errEl.style.display = 'block';
         return;
       }
-      if (!berat) {
-        errEl.textContent = 'Isi berat dulu ya';
+      if (!berat && !tinggi) {
+        errEl.textContent = 'Isi berat atau tinggi minimal salah satu';
         errEl.style.display = 'block';
         return;
       }
@@ -213,8 +213,11 @@
         .catch(tampilkanKonfirmasi);
 
       function tampilkanKonfirmasi() {
+        var detail = [];
+        if (berat) detail.push(berat + ' kg');
+        if (tinggi) detail.push(tinggi + ' cm');
         document.getElementById('konfirmasiTeks').textContent = anakDipilih + ' tersimpan!';
-        document.getElementById('konfirmasiDetail').textContent = berat + ' kg' + (tinggi ? ' · ' + tinggi + ' cm' : '');
+        document.getElementById('konfirmasiDetail').textContent = detail.join(' · ');
         document.getElementById('formCard').style.display = 'none';
         document.getElementById('konfirmasiCard').style.display = 'block';
       }
