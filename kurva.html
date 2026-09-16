@@ -45,9 +45,9 @@
       <div id="status">Pilih anak dulu</div>
       <canvas id="chart" style="display:none;"></canvas>
       <div class="legend" id="legend" style="display:none;">
-        <span><i class="dot" style="background:#e0a898;"></i> P3 (bawah)</span>
-        <span><i class="dot" style="background:#a8cdd7;"></i> P50 (median)</span>
-        <span><i class="dot" style="background:#e0a898;"></i> P97 (atas)</span>
+        <span><i class="dot" style="background:#e0a898;"></i> -2SD</span>
+        <span><i class="dot" style="background:#a8cdd7;"></i> Median (0SD)</span>
+        <span><i class="dot" style="background:#e0a898;"></i> +2SD</span>
         <span><i class="dot" style="background:#5b7c8a;"></i> Berat Kaif/Kia</span>
       </div>
     </div>
@@ -186,13 +186,13 @@
           var maxBulan = Math.max(60, Math.ceil(titikData[titikData.length - 1].x / 6) * 6);
           var ref = WHO[nama];
           var labelBulan = [];
-          var dataP3 = [], dataP50 = [], dataP97 = [];
+          var dataM2 = [], dataM0 = [], dataP2 = [];
           for (var b = 0; b <= maxBulan; b += 1) {
             var v = interpolasi(ref, b);
             labelBulan.push(b);
-            dataP3.push(v.p3);
-            dataP50.push(v.p50);
-            dataP97.push(v.p97);
+            dataM2.push(v.m2);
+            dataM0.push(v.m0);
+            dataP2.push(v.p2);
           }
 
           document.getElementById('status').style.display = 'none';
@@ -207,9 +207,9 @@
             data: {
               labels: labelBulan,
               datasets: [
-                { label: 'P97', data: dataP97, borderColor: '#e0a898', borderWidth: 1, pointRadius: 0, borderDash: [4,4] },
-                { label: 'P50', data: dataP50, borderColor: '#a8cdd7', borderWidth: 1.5, pointRadius: 0 },
-                { label: 'P3', data: dataP3, borderColor: '#e0a898', borderWidth: 1, pointRadius: 0, borderDash: [4,4] },
+                { label: '+2SD', data: dataP2, borderColor: '#e0a898', borderWidth: 1, pointRadius: 0, borderDash: [4,4] },
+                { label: 'Median (0SD)', data: dataM0, borderColor: '#a8cdd7', borderWidth: 1.5, pointRadius: 0 },
+                { label: '-2SD', data: dataM2, borderColor: '#e0a898', borderWidth: 1, pointRadius: 0, borderDash: [4,4] },
                 {
                   label: nama, data: titikData, borderColor: '#5b7c8a', backgroundColor: '#5b7c8a',
                   pointRadius: 4, borderWidth: 2, showLine: true, parsing: false
@@ -228,7 +228,7 @@
 
           var terakhir = titikData[titikData.length - 1];
           var posisi = interpolasi(ref, terakhir.x);
-          var ket = terakhir.y < posisi.p3 ? 'di bawah P3' : terakhir.y > posisi.p97 ? 'di atas P97' : 'dalam rentang normal (P3–P97)';
+          var ket = terakhir.y < posisi.m2 ? 'di bawah -2SD' : terakhir.y > posisi.p2 ? 'di atas +2SD' : 'dalam rentang normal (-2SD s/d +2SD)';
           document.getElementById('infoTerakhir').textContent =
             'Data terakhir: ' + terakhir.y + ' kg pada usia ' + terakhir.x + ' bulan — ' + ket;
           }
