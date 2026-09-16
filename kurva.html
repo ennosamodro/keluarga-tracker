@@ -141,18 +141,23 @@
 
           rows.forEach(function(r) {
             var c = r.c;
-            if (!c[0] || !c[1] || c[1].v !== nama || !c[2]) return;
+            if (!c[0] || !c[1] || c[1].v !== nama) return;
             var raw = c[0].v;
             var m = /Date\((\d+),(\d+),(\d+),(\d+),(\d+),(\d+)\)/.exec(raw);
             if (!m) return;
             var d = new Date(parseInt(m[1]), parseInt(m[2]), parseInt(m[3]));
-            var bulanUsia = (d - lahir) / (1000 * 60 * 60 * 24 * 30.4375);
-            titikData.push({ x: Math.round(bulanUsia * 10) / 10, y: parseFloat(c[2].v) });
+            var beratVal = c[2] && c[2].v !== '' ? parseFloat(c[2].v) : null;
+            var tinggiVal = c[3] && c[3].v !== '' ? parseFloat(c[3].v) : null;
+
+            if (beratVal !== null) {
+              var bulanUsia = (d - lahir) / (1000 * 60 * 60 * 24 * 30.4375);
+              titikData.push({ x: Math.round(bulanUsia * 10) / 10, y: beratVal });
+            }
             riwayatMentah.push({
               tanggal: d,
               tanggalLabel: d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
-              berat: parseFloat(c[2].v),
-              tinggi: c[3] && c[3].v ? parseFloat(c[3].v) : null,
+              berat: beratVal,
+              tinggi: tinggiVal,
               catatan: c[4] && c[4].v ? c[4].v : ''
             });
           });
@@ -160,10 +165,14 @@
           titikData.sort(function(a, b) { return a.x - b.x; });
           riwayatMentah.sort(function(a, b) { return a.tanggal - b.tanggal; });
 
-          if (titikData.length === 0) {
-            document.getElementById('status').textContent = 'Belum ada data ' + nama + ' buat digambar kurvanya.';
+          if (riwayatMentah.length === 0) {
+            document.getElementById('status').textContent = 'Belum ada data ' + nama + ' tercatat.';
             return;
           }
+
+          if (titikData.length === 0) {
+            document.getElementById('status').textContent = 'Belum ada data berat ' + nama + ' (kurva WHO butuh berat). Riwayat tinggi tetap ditampilkan di bawah.';
+          } else {
 
           // bikin garis referensi dari usia 0 sampai usia terakhir tercatat (dibulatkan ke atas)
           var maxBulan = Math.max(60, Math.ceil(titikData[titikData.length - 1].x / 6) * 6);
@@ -214,6 +223,7 @@
           var ket = terakhir.y < posisi.p3 ? 'di bawah P3' : terakhir.y > posisi.p97 ? 'di atas P97' : 'dalam rentang normal (P3–P97)';
           document.getElementById('infoTerakhir').textContent =
             'Data terakhir: ' + terakhir.y + ' kg pada usia ' + terakhir.x + ' bulan — ' + ket;
+          }
 
           gambarRiwayat(riwayatMentah, lahir);
           tampilkanList(riwayatMentah);
